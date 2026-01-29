@@ -1,0 +1,65 @@
+name: Extract TV Channels
+
+on:
+  schedule:
+    # 每天凌晨2点运行（UTC时间）
+    - cron: '0 */3 * * *'
+  workflow_dispatch:  # 允许手动触发
+  push:
+    paths:
+      - '.github/workflows/extract-channels.yml'  # 当工作流文件变更时触发
+
+permissions:
+  contents: write  # 授予写入仓库的权限
+
+jobs:
+  extract-weishi-channels:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Download channel list
+      run: |
+        curl -s -L "https://gitee.com/mytv-android/iptv-api/raw/master/output/result.txt" -o channels.txt
+        echo "原始文件大小: $(wc -l < channels.txt) 行"
+
+    - name: Extract channels containing '卫视'
+      run: |
+        # 提取包含'卫视'的行（不区分大小写）
+        grep -i "卫视" channels.txt > weishi.txt || echo "未找到包含'卫视'的频道"
+        
+        # 统计提取结果
+        if [ -s weishi.txt ]; then
+          echo "提取到 $(wc -l < weishi.txt) 个卫视频道"
+          echo "前5个频道示例："
+          head -5 weishi.txt
+        else
+          echo "警告：提取结果为空"
+        fi
+
+    - name: Commit and push if changed
+      run: |
+        # 配置Git用户
+        git config --global user.name "GitHub Actions"
+        git config --global user.email "actions@github.com"
+        
+        # 检查文件是否变更
+        if git diff --no-ext-diff --quiet --exit-code weishi.txt 2>/dev/null; then
+          echo "文件无变更，无需提交"
+        else
+          echo "检测到文件变更，提交更新"
+          git add weishi.txt
+          git commit -m "更新卫视频道列表 [$(date +'%Y-%m-%d %H:%M:%S')]"
+          git push
+        fi
+
+    - name: Upload weishi.txt as artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: weishi-channels
+        path: weishi.txt
+        retention-days: 5
