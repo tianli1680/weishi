@@ -3,7 +3,7 @@ name: Extract TV Channels
 on:
   schedule:
     # 每天凌晨2点运行（UTC时间）
-    - cron: '0 */3 * * *'
+    - cron: '0 */4 * * *'
   workflow_dispatch:  # 允许手动触发
   push:
     paths:
@@ -21,6 +21,8 @@ jobs:
       uses: actions/checkout@v4
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
+        # 添加 fetch-depth: 0 获取完整历史记录
+        fetch-depth: 0
 
     - name: Download channel list
       run: |
@@ -39,6 +41,8 @@ jobs:
           head -5 weishi.txt
         else
           echo "警告：提取结果为空"
+          # 创建空文件以避免后续错误
+          touch weishi.txt
         fi
 
     - name: Commit and push if changed
@@ -47,14 +51,19 @@ jobs:
         git config --global user.name "GitHub Actions"
         git config --global user.email "actions@github.com"
         
-        # 检查文件是否变更
-        if git diff --no-ext-diff --quiet --exit-code weishi.txt 2>/dev/null; then
-          echo "文件无变更，无需提交"
+        # 拉取最新更改以避免冲突
+        git pull origin main
+        
+        # 添加文件到git
+        git add weishi.txt
+        
+        # 检查是否有变更需要提交
+        if git diff --cached --quiet; then
+          echo "没有变更需要提交"
         else
           echo "检测到文件变更，提交更新"
-          git add weishi.txt
           git commit -m "更新卫视频道列表 [$(date +'%Y-%m-%d %H:%M:%S')]"
-          git push
+          git push origin HEAD:main
         fi
 
     - name: Upload weishi.txt as artifact
