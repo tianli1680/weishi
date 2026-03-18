@@ -26,7 +26,7 @@ jobs:
 
     - name: Download channel list
       run: |
-        curl -s -L "https://gitee.com/mytv-android/iptv-api/raw/master/output/result.m3u" -o channels.txt
+        curl -s -L "https://raw.githubusercontent.com/mytv-android/iptv-api/refs/heads/master/output/result.txt" -o channels.txt
         echo "原始文件大小: $(wc -l < channels.txt) 行"
 
     - name: Extract channels containing '卫视'
